@@ -1,5 +1,5 @@
 ﻿name: "Azure Hosted Dynamic DNS"
-version: "0.0.2"
+version: "0.0.5"
 slug: folder
 description: >-
    "Will save the public ip address of the network you are on to azure dns,
@@ -18,8 +18,10 @@ options:
  AzureResourceName: null
  DNSZoneName: null
  DNSARecordToUpdate: HA
- PollFrequency(ms): 60000
- DNSARecordTTL(s): 300
+ PollFrequency: 60000
+ DNSARecordTTL: 300
+ IPServiceURL: null
+ URLParsingRegex: ^((25[0-5]|(2[0-4]|1\\d|[1-9]|)\\d)\\.?\\b){4}$
 schema:
  AzureTenantID: str
  AzureClientID: str
@@ -28,5 +30,7 @@ schema:
  AzureResourceName: str
  DNSZoneName: str
  DNSARecordToUpdate: str
- PollFrequency(ms): int
- DNSARecordTTL(s): int
+ PollFrequency: int
+ DNSARecordTTL: int
+ IPServiceURL: str
+ URLParsingRegex: str

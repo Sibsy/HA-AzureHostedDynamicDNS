@@ -52,10 +52,13 @@ namespace Azure_Hosted_Dynamic_DNS
 
             if (_logger.IsEnabled(LogLevel.Information))
             {
+                _logger.LogInformation("Configuration Used: ");
                 _logger.LogInformation("DNSZoneName: {dnsZoneName}", dnsZoneName);
                 _logger.LogInformation("DNSARecordToUpdate: {dnsARecordToUpdate}", dnsARecordToUpdate);
                 _logger.LogInformation("Poll Frequency: {pollFrequency}", pollFrequency);
                 _logger.LogInformation("DNSARecordTTL: {dnsARecordTTL} ", dnsARecordTTL);
+                _logger.LogInformation("URL For Getting External IP: {urlForExternalIP}", urlForExternalIP);
+                _logger.LogInformation("Regex for IP Parsing: {regexToParseURLResponse}", regexToParseURLResponse);
             }
             if (armclient == null)
             {
@@ -83,6 +86,8 @@ namespace Azure_Hosted_Dynamic_DNS
                     _logger.LogInformation("Could not get any information from {urlForExternalIP}. aborting process", urlForExternalIP);
                     break;
                 }
+                else
+                    _logger.LogInformation("First 50char in url response: {urlResp}", httpStringContent[.. (httpStringContent.Length < 50 ? httpStringContent.Length:50)]);
                 string ip;
                 if (string.IsNullOrWhiteSpace(regexToParseURLResponse))
                     ip = httpStringContent;
