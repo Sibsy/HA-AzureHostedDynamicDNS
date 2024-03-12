@@ -1,3 +1,9 @@
+Status:
+[![BuildAndAnalyze](https://github.com/Sibsy/HA-AzureHostedDynamicDNS/actions/workflows/GHA-Build-Analyze.yml/badge.svg?branch=main)](https://github.com/Sibsy/HA-AzureHostedDynamicDNS/actions/workflows/GHA-Build-Analyze.yml)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=Sibsy_HA-AzureHostedDynamicDNS&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=Sibsy_HA-AzureHostedDynamicDNS)
+[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=Sibsy_HA-AzureHostedDynamicDNS&metric=code_smells)](https://sonarcloud.io/summary/new_code?id=Sibsy_HA-AzureHostedDynamicDNS)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=Sibsy_HA-AzureHostedDynamicDNS&metric=bugs)](https://sonarcloud.io/summary/new_code?id=Sibsy_HA-AzureHostedDynamicDNS)
+
 # Introduction 
 TODO: Give a short introduction of your project. Let this section explain the objectives or the motivation behind this project. 
 
