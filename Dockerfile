@@ -1,5 +1,6 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS publish
 
+
 WORKDIR /src
 COPY ["Azure Hosted Dynamic DNS.csproj", "."]
 RUN dotnet restore "./Azure Hosted Dynamic DNS.csproj" --runtime linux-musl-x64
