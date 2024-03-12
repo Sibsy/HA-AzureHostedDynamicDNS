@@ -1,5 +1,5 @@
 ﻿name: "Azure Hosted Dynamic DNS"
-version: "0.0.5"
+version: "0.0.6"
 slug: folder
 description: >-
    "Will save the public ip address of the network you are on to azure dns,
