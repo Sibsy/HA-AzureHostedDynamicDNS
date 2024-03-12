@@ -197,7 +197,7 @@ namespace Azure_Hosted_Dynamic_DNS
                     _logger.LogInformation("Existing Cloud IP was same as current. doing nothing");
                 else if (recordData.DnsARecords.Any())
                 {
-                    _logger.LogInformation("Existing Cloud IP was '{existingdns}'  new ip address is {ip}", recordData.DnsARecords.FirstOrDefault()!.IPv4Address, ip);
+                    _logger.LogInformation("Existing Cloud IP was '{existingdns}'  new ip address is {ip}", recordData.DnsARecords.FirstOrDefault()!.IPv4Address, _ipAddress);
                     recordData.DnsARecords.Clear();
                     recordData.DnsARecords.Add(new DnsARecordInfo() { IPv4Address = _ipAddress });
                     recordData.TtlInSeconds = dnsARecordTTL;
