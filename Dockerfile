@@ -11,11 +11,11 @@ COPY ["Azure Hosted Dynamic DNS.csproj", "."]
 RUN dotnet restore "./././Azure Hosted Dynamic DNS.csproj"
 COPY . .
 WORKDIR "/src/."
-RUN dotnet build "./Azure Hosted Dynamic DNS.csproj" -c $BUILD_CONFIGURATION -o /app/build
+RUN dotnet build "./Azure Hosted Dynamic DNS.csproj" -c "$BUILD_CONFIGURATION" -o /app/build
 
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./Azure Hosted Dynamic DNS.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "./Azure Hosted Dynamic DNS.csproj" -c "$BUILD_CONFIGURATION" -o /app/publish /p:UseAppHost=false
 
 FROM base AS final
 WORKDIR /app

@@ -29,90 +29,33 @@ namespace Azure_Hosted_Dynamic_DNS
         readonly int pollFrequency = int.TryParse(Environment.GetEnvironmentVariable("PollFrequency"), out int parsedPollFreq) ? parsedPollFreq : 300000;
         readonly int dnsARecordTTL = int.TryParse(Environment.GetEnvironmentVariable("DNSARecordTTL"), out int parsedTTL) ? parsedTTL : 300;
 
-
         public Worker(ILogger<Worker> logger)
         {
             _logger = logger;
             if (_logger.IsEnabled(LogLevel.Information))
             {
-                _logger.LogInformation($"Worker has Started.");
+                _logger.LogInformation("Worker has Started.");
             }
         }
 
-
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            ClientSecretCredential? cred = null;
-
             if (IsConfigInValid())
-            {
-                _logger.LogError($"Missing Config, Please Ensure supplied config is correct and present.");
                 return;
-            }
 
-            if (_logger.IsEnabled(LogLevel.Information))
-            {
-                _logger.LogInformation("Configuration Used: ");
-                _logger.LogInformation("DNSZoneName: {dnsZoneName}", dnsZoneName);
-                _logger.LogInformation("DNSARecordToUpdate: {dnsARecordToUpdate}", dnsARecordToUpdate);
-                _logger.LogInformation("Poll Frequency: {pollFrequency}", pollFrequency);
-                _logger.LogInformation("DNSARecordTTL: {dnsARecordTTL} ", dnsARecordTTL);
-                _logger.LogInformation("URL For Getting External IP: {urlForExternalIP}", urlForExternalIP);
-                _logger.LogInformation("Regex for IP Parsing: {regexToParseURLResponse}", regexToParseURLResponse);
-            }
-            if (armclient == null)
-            {
-                cred = new ClientSecretCredential(azureTenant, azureClientID, azureClientSecret);
-                armclient = new ArmClient(cred);
-            }
-            using var client = new HttpClient();
+            SetupArmClient();
+
+            StartupLogging();
+
             while (!stoppingToken.IsCancellationRequested)
             {
-                string? httpStringContent = null;
-
-                int loopCount = 0;
-                while (loopCount < 3)
-                {
-                    var result = await client.GetAsync(urlForExternalIP, stoppingToken);
-                    if (result.IsSuccessStatusCode)
-                    {
-                        httpStringContent = await result.Content.ReadAsStringAsync(stoppingToken);
-                        break;
-                    }
-                    loopCount++;
-                }
-                if (string.IsNullOrWhiteSpace(httpStringContent))
-                {
-                    _logger.LogInformation("Could not get any information from {urlForExternalIP}. aborting process", urlForExternalIP);
-                    break;
-                }
-                else
-                    _logger.LogInformation("First 50char in url response: {urlResp}", httpStringContent[.. (httpStringContent.Length < 50 ? httpStringContent.Length:50)]);
-                string ip;
-                if (string.IsNullOrWhiteSpace(regexToParseURLResponse))
-                    ip = httpStringContent;
-                else
-                {
-                    var baseRegex = new Regex(regexToParseURLResponse, RegexOptions.IgnoreCase);
-                    var regexMatches = baseRegex.Count(httpStringContent);
-                    if (regexMatches > 1)
-                    {
-                        if (_logger.IsEnabled(LogLevel.Information))
-                            _logger.LogInformation("Multiple IP address matching regex found. using the first");
-                    }
-                    else if (regexMatches == 0)
-                    {
-                        _logger.LogError("No IP Address found matching regex. aborting process");
-                        break;
-                    }
-                    ip = baseRegex.Match(httpStringContent).Value;
-                }
-
+                string? ip = await GetExternalIPAsync(stoppingToken);
+                if (string.IsNullOrEmpty(ip))
+                    return;
 
                 if (_logger.IsEnabled(LogLevel.Information))
-                {
                     _logger.LogInformation("Last ip is '{lastIP}' current ip is '{ip}'. running at: {time}", lastIP, ip, DateTimeOffset.Now);
-                }
+
                 if (ip != lastIP)
                 {
                     bool isIPValid = IPAddress.TryParse(ip, out IPAddress? parsedIP);
@@ -121,7 +64,7 @@ namespace Azure_Hosted_Dynamic_DNS
                         _logger.LogInformation("IP Parsed is not a valid ip");
                         break;
                     }
-                    var sub = armclient.GetSubscriptionResource(new ResourceIdentifier($"/subscriptions/{azureSub}"));
+                    var sub = armclient!.GetSubscriptionResource(new ResourceIdentifier($"/subscriptions/{azureSub}"));
                     if (sub == null) break;
                     var resourceGroup = await sub.GetResourceGroupAsync(azureResourceName, stoppingToken);
                     if (resourceGroup == null || !resourceGroup.Value.HasData) break;
@@ -139,7 +82,7 @@ namespace Azure_Hosted_Dynamic_DNS
                     if (temp.DnsARecords.Any(x => x.IPv4Address.ToString() == parsedIP!.ToString()))
                     {
                         if (_logger.IsEnabled(LogLevel.Information))
-                            _logger.LogInformation($"Existing Cloud IP was same as current. doing nothing");
+                            _logger.LogInformation("Existing Cloud IP was same as current. doing nothing");
                     }
                     else if (temp.DnsARecords.Any())
                     {
@@ -150,7 +93,7 @@ namespace Azure_Hosted_Dynamic_DNS
                         temp.TtlInSeconds = dnsARecordTTL;
                         await dnsRecord.Value.UpdateAsync(temp, cancellationToken: stoppingToken);
                         if (_logger.IsEnabled(LogLevel.Information))
-                            _logger.LogInformation($"Azure A Record Updated");
+                            _logger.LogInformation("Azure A Record Updated");
                     }
                     else
                     {
@@ -166,7 +109,7 @@ namespace Azure_Hosted_Dynamic_DNS
                         var recordUpdateResult = await allDnsRecords.CreateOrUpdateAsync(Azure.WaitUntil.Completed, dnsARecordToUpdate, dnsARecord, cancellationToken: stoppingToken);
                         recordUpdateResult.WaitForCompletion(stoppingToken);
                         int breakcounter = 0;
-                        while (!recordUpdateResult.HasCompleted && breakcounter<6)
+                        while (!recordUpdateResult.HasCompleted && breakcounter < 6)
                         {
                             await Task.Delay(2000, stoppingToken);
                             breakcounter++;
@@ -186,16 +129,94 @@ namespace Azure_Hosted_Dynamic_DNS
                 await Task.Delay(pollFrequency, stoppingToken);
             }
         }
+        private void SetupArmClient()
+        {
+            if (armclient == null)
+            {
+                ClientSecretCredential? cred = new(azureTenant, azureClientID, azureClientSecret);
+                armclient = new ArmClient(cred);
+            }
+        }
 
         private bool IsConfigInValid()
         {
-            return (string.IsNullOrWhiteSpace(azureTenant)
+            bool result = (string.IsNullOrWhiteSpace(azureTenant)
               || string.IsNullOrWhiteSpace(azureClientID)
               || string.IsNullOrWhiteSpace(azureClientSecret)
               || string.IsNullOrWhiteSpace(azureSub)
               || string.IsNullOrWhiteSpace(azureResourceName)
               || string.IsNullOrWhiteSpace(dnsZoneName)
               || string.IsNullOrWhiteSpace(urlForExternalIP));
+
+            if (result)
+                _logger.LogError("Missing Config, Please Ensure supplied config is correct and present.");
+            return result;
+        }
+
+        private void StartupLogging()
+        {
+            if (_logger.IsEnabled(LogLevel.Information))
+            {
+                _logger.LogInformation("Configuration Used: ");
+                _logger.LogInformation("DNSZoneName: {dnsZoneName}", dnsZoneName);
+                _logger.LogInformation("DNSARecordToUpdate: {dnsARecordToUpdate}", dnsARecordToUpdate);
+                _logger.LogInformation("Poll Frequency: {pollFrequency}", pollFrequency);
+                _logger.LogInformation("DNSARecordTTL: {dnsARecordTTL} ", dnsARecordTTL);
+                _logger.LogInformation("URL For Getting External IP: {urlForExternalIP}", urlForExternalIP);
+                _logger.LogInformation("Regex for IP Parsing: {regexToParseURLResponse}", regexToParseURLResponse);
+            }
+        }
+
+        private async Task<string?> GetExternalIPAsync(CancellationToken stoppingToken)
+        {
+
+            using var client = new HttpClient();
+            string? httpStringContent = null;
+
+            int loopCount = 0;
+            while (loopCount < 3)
+            {
+                var result = await client.GetAsync(urlForExternalIP, stoppingToken);
+                if (result.IsSuccessStatusCode)
+                {
+                    httpStringContent = await result.Content.ReadAsStringAsync(stoppingToken);
+                    break;
+                }
+                loopCount++;
+            }
+            if (string.IsNullOrWhiteSpace(httpStringContent))
+            {
+                _logger.LogInformation("Could not get any information from {urlForExternalIP}. aborting process", urlForExternalIP);
+                return null;
+            }
+            else
+                _logger.LogInformation("First 50char in url response: {urlResp}", httpStringContent[..(httpStringContent.Length < 50 ? httpStringContent.Length : 50)]);
+            if (string.IsNullOrWhiteSpace(regexToParseURLResponse))
+                return httpStringContent;
+            if (ParseResponseToIPString(httpStringContent, out string? ParsedResult))
+                return ParsedResult;
+            else
+                return null;
+
+        }
+
+        private bool ParseResponseToIPString(string httpStringContent, out string? ParsedResult)
+        {
+            var baseRegex = new Regex(regexToParseURLResponse!, RegexOptions.IgnoreCase, matchTimeout: new TimeSpan(0, 0, 5));
+            var regexMatches = baseRegex.Count(httpStringContent);
+            if (regexMatches > 1)
+            {
+                if (_logger.IsEnabled(LogLevel.Information))
+                    _logger.LogInformation("Multiple IP address matching regex found. using the first");
+            }
+            else if (regexMatches == 0)
+            {
+                _logger.LogError("No IP Address found matching regex. aborting process");
+                ParsedResult = null;
+                return false;
+            }
+            ParsedResult = baseRegex.Match(httpStringContent).Value;
+            return true;
         }
     }
 
